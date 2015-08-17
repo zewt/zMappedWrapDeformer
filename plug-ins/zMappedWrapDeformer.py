@@ -107,14 +107,12 @@ class zMappedWrapDeformer(OpenMayaMPx.MPxDeformerNode):
                 if targetIndex >= targetPoints.length():
                     break
 
-                # The index in the input shape:
+                # The index in the input shape.
                 inputIndex = vertexIndex.asInt()
-                if inputIndex >= points.length():
-                    continue
 
                 # Index -1 means that we couldn't find any matching vertex for this index, and
                 # it should be skipped.
-                if inputIndex == -1:
+                if inputIndex >= points.length() or inputIndex == -1:
                     continue
 
                 targetVertex = targetPoints[targetIndex]
