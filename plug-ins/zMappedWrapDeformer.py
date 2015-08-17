@@ -69,44 +69,46 @@ class zMappedWrapDeformer(OpenMayaMPx.MPxDeformerNode):
         geomIter.allPositions(points, OpenMaya.MSpace.kObject)
         worldToObjectSpaceMatrix = objectToWorldSpaceMatrix.inverse()
 
-        # XXX: This evaluates all inputs, even ones that aren't going to be used
-        # http://download.autodesk.com/us/maya/2011help/API/class_m_px_deformer_node.html
-        inputsHandle = dataBlock.inputArrayValue(zMappedWrapDeformer.inputsAttr)
+        # Be careful to not call inputArrayValue on inputsAttr.  That'll evaluate all input
+        # meshes, even ones that are currently disabled.
+        inputsPlug = OpenMaya.MPlug(self.thisMObject(), zMappedWrapDeformer.inputsAttr)
+        for inputIdx in xrange(inputsPlug.numElements()):
+            inputPlug = inputsPlug.connectionByPhysicalIndex(inputIdx)
 
-        for value in iterate_array_handle(inputsHandle):
             # If the envelope for this mesh is very small, skip it without reading the input.
-            targetEnvelope = value.child(self.targetEnvelopeAttr)
+            targetEnvelope = inputPlug.child(self.targetEnvelopeAttr)
             targetEnvelope = targetEnvelope.asFloat()
             if targetEnvelope < 0.001:
                 continue
-
-            vertexIndex = value.child(self.vertexIndexAttr)
-            vertexIndex = OpenMaya.MArrayDataHandle(vertexIndex)
-            if vertexIndex.elementCount() == 0:
+            
+            # Get the mapping from target vertex indices to the input.
+            vertexIndices = inputPlug.child(self.vertexIndexAttr)
+            if vertexIndices.evaluateNumElements() == 0:
                 continue
 
-            inputGeomTarget = value.child(self.inputGeomTargetAttr)
-            targetMesh = OpenMaya.MFnMesh(inputGeomTarget.asMeshTransformed())
-
+            # Get the target geometry.
+            inputGeomTarget = inputPlug.child(self.inputGeomTargetAttr)
+            targetMesh = OpenMaya.MFnMesh(inputGeomTarget.asMObject())
             targetPoints = OpenMaya.MFloatPointArray()
             targetMesh.getPoints(targetPoints, OpenMaya.MSpace.kWorld)
 
+            # Combine the envelope for the deformer itself with the envelope for this target.
             targetEnvelope *= targetEnvelope * envelope
             oneMinusEnvelope = 1-targetEnvelope
 
-            # XXX: The envelope will usually be only zero or one.  Is it worth having a separate
-            # code path for when envelope is 1, which doesn't do the envelope math?
+            # Take a faster code path if the envelope is 1.
             targetEnvelopeIsOne = abs(1 - targetEnvelope) < 0.001
-            print targetEnvelopeIsOne
 
-            for index in iterate_array_handle(vertexIndex):
+            for index in xrange(vertexIndices.evaluateNumElements()):
+                vertexIndex = vertexIndices.elementByPhysicalIndex(index)
+
                 # The index in the target shape:
-                targetIndex = vertexIndex.elementIndex()
+                targetIndex = vertexIndex.logicalIndex()
                 if targetIndex >= targetPoints.length():
                     break
 
                 # The index in the input shape:
-                inputIndex = index.asInt()
+                inputIndex = vertexIndex.asInt()
                 if inputIndex >= points.length():
                     continue
 
