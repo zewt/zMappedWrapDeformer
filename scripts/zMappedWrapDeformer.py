@@ -135,3 +135,20 @@ def addTarget(deformer=None, targetShape=None, tolerance=0.001):
     for idx, value in enumerate(indexMapping):
         cmds.setAttr('%s.inputTarget[%i].vertexIndex[%i]' % (deformer, deformerIdx, idx), value)
     
+    ourVertices = set(indexMapping)
+
+    # Check for overlapping vertex influences.
+    for idx in cmds.getAttr('%s.inputTarget' % deformer, mi=True):
+        if idx == deformerIdx:
+            continue
+
+        # Ignore this index if there's no geometry attached.
+        connections = cmds.listConnections('%s.inputTarget[%i].inputGeomTarget' % (deformer, idx)) or []
+        if not connections:
+            continue
+
+        vertices = set(cmds.getAttr('%s.inputTarget[%i].vertexIndex[*]' % (deformer, idx)) or [])
+        overlappingVertices = ourVertices & vertices
+        if overlappingVertices:
+            OpenMaya.MGlobal.displayWarning('New target %s shares %i vertices with existing target %s' % (targetShape, len(overlappingVertices), connections[0]))
+
