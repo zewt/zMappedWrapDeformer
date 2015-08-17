@@ -78,6 +78,20 @@ def create(mesh=None):
 
     return cmds.deformer(mesh, type='zMappedWrapDeformer')[0]
 
+def _isTargetForDeformer(deformer, targetShape):
+    try:
+        connections = cmds.listConnections('%s.inputTarget[*].inputGeomTarget' % deformer, p=True) or []
+    except ValueError as e:
+        # This throws "no object matches name" if there are no entries at all.
+        return False
+
+    fullPath = cmds.ls('%s.worldMesh' % targetShape, l=True)[0]
+    for existingConnection in connections:
+        existingConnection = cmds.ls(existingConnection, l=True)[0]
+        if existingConnection == fullPath:
+            return True
+    return False
+
 def addTarget(deformer=None, targetShape=None, tolerance=0.001):
     """
     Add a target to a zMappedWrapDeformer.
@@ -98,6 +112,10 @@ def addTarget(deformer=None, targetShape=None, tolerance=0.001):
         return
     deformer = deformerNode
    
+    if _isTargetForDeformer(deformer, targetShape):
+        OpenMaya.MGlobal.displayWarning('%s is already a target for %s.' % (targetShape, deformer))
+        return
+
     # Find the input shape for the deformer.  We need it to create the vertex mapping.
     inputShape = _findDeformerInput(deformer)
     transforms = cmds.listRelatives(inputShape, p=True, path=True, typ='transform')
