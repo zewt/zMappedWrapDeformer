@@ -1,0 +1,11 @@
+global proc AEzMappedWrapDeformerTemplate(string $nodeName)
+{
+    print "xxx\n";
+    editorTemplate -beginScrollLayout;
+    editorTemplate -suppress "inputTarget";
+    editorTemplate -suppress "vertexIndex";
+    AEgeometryFilterCommon $nodeName;
+    AEgeometryFilterInclude $nodeName;
+    editorTemplate -addExtraControls;
+    editorTemplate -endScrollLayout;
+}

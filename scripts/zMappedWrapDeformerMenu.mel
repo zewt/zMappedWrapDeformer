@@ -1,0 +1,28 @@
+global string $gRigDeformationsMenu;
+
+global proc string add_mapped_wrap_deformer_menu()
+{
+    global string $gRigDeformationsMenu;
+    setParent -m $gRigDeformationsMenu;
+    menuItem -divider true -dividerLabel "";
+    
+    menuItem -label "Mapped Wrap" -aob true -subMenu true -tearOff true MWD;
+        menuItem -label "Create"
+                -annotation "Create a mapped wrap deformer for the selected mesh"
+                -command "python \"import zMappedWrapDeformer; zMappedWrapDeformer.create()\"";
+        menuItem -label "Add target"
+                -annotation "Select a target object and then the base object."
+                -command "python \"import zMappedWrapDeformer; zMappedWrapDeformer.addTarget()\"";
+    setParent -m ..;
+    
+    return "delete_mapped_wrap_deformer_menu()";
+}
+
+global proc delete_mapped_wrap_deformer_menu()
+{
+    deleteUI -mi MWD;
+}
+
+global string $add_add_mapped_wrap_deformer_menu_var = "";
+addMenuItemSafe($gRigDeformationsMenu, "add_mapped_wrap_deformer_menu", "add_add_mapped_wrap_deformer_menu_var");
+
