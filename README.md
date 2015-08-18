@@ -54,6 +54,6 @@ Matching vertices is a brute force search, and needs to be optimized for
 dense meshes.
 
 Normals are currently not copied.  This isn't needed if you're using unlocked
-normals or a tangent-space bump map.
+normals or a tangent-space normal map.
 
 
