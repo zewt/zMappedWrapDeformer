@@ -46,14 +46,6 @@ to another.
 Known issues
 ------------
 
-Deleting a target connection should reset the input, but instead the old
-mesh connection keeps being used.  disconnectBehavior is set to kReset, so
-this shouldn't be happening.
-
-Matching vertices is a brute force search, and needs to be optimized for
-dense meshes.
-
 Normals are currently not copied.  This isn't needed if you're using unlocked
 normals or a tangent-space normal map.
-
 
