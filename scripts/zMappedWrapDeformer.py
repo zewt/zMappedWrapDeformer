@@ -1,7 +1,7 @@
 import maya.cmds as cmds
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaAnim as OpenMayaAnim
-import math, time
+import bisect, math, time
 
 def _getShape(node):
     """
@@ -92,6 +92,43 @@ def _isTargetForDeformer(deformer, targetShape):
             return True
     return False
 
+def _findClosestPoint(data, value, tol=0.001):
+    """
+    Given a list of values sorted by their X coordinate, find the closest point
+    within the specified tolerance.
+
+    A more robust approach would be a BSP tree or other 3d structure, but this
+    handles most meshes fine.  This will be slow if the input mesh is a 2d object
+    along the YZ plane, in which case the X coordinates will all be the same.
+    We could detect that case and swap the coordinates to sort on a different
+    axis if we needed to.
+    """
+    # The values are sorted by their X value.  Do a binary search to find a starting
+    # point, which will give an X value near the one we're looking for.  bisect does
+    # strictly define the index it gives, but we're going to traverse in both directions
+    # until we pass the tolerance, so we don't care.
+    start_idx = bisect.bisect_left(data, (value[0] - tol, value[1], value[2]))
+    end_idx = bisect.bisect_left(data, (value[0] + tol, value[1], value[2]))
+
+    nearest_idx = -1
+    nearest_idx_distance = 99999999
+    tolerance_squared = pow(tol, 2)
+    for idx in xrange(start_idx, end_idx):
+        point = data[idx]
+
+        distance_squared = pow(point[0] - value[0], 2) + pow(point[1] - value[1], 2) + pow(point[2] - value[2], 2)
+        # print 'point', point, value, distance_squared, pow(distance_squared, 0.5)
+        if distance_squared > tolerance_squared:
+            continue
+
+        # If this point is closer than the best match we have, update the match.  However,
+        # don't stop iterating if it's further, since it may just be further on an axis
+        # other than the one we sorted on.
+        if nearest_idx == -1 or distance_squared < nearest_idx_distance:
+            nearest_idx_distance = distance_squared
+            nearest_idx = idx
+    return nearest_idx
+
 def addTarget(deformer=None, targetShape=None, tolerance=0.001):
     """
     Add a target to a zMappedWrapDeformer.
@@ -126,27 +163,32 @@ def addTarget(deformer=None, targetShape=None, tolerance=0.001):
 
     sourcePositions = cmds.xform('%s.vtx[*]' % inputShape, q=True, t=True, ws=True)
     sourcePositions = [(x, y, z) for x, y, z in zip(sourcePositions[0::3], sourcePositions[1::3], sourcePositions[2::3])]
-    # print targetPositions
-    # print sourcePositions
     
-    def findClosestPoint(point):
-        closestIndex = -1
-        closestDistance = 99999999
-        for idx, value in enumerate(sourcePositions):
-            distance = math.pow(value[0] - point[0], 2) + math.pow(value[1] - point[1], 2) + math.pow(value[2] - point[2], 2)
-#            print value, point, distance
-            if distance < closestDistance:
-                closestDistance = distance
-                closestIndex = idx
-        return closestIndex
+    # Store the index of each point, so we can recover the original index after sorting.
+    sourcePositions = [(x, y, z, idx) for idx, (x, y, z) in enumerate(sourcePositions)]
 
+    # Sort the keys by their X coordinate, which _findClosestPoint requires.
+    sourcePositions.sort(key=lambda value: value[0])
+    # print 'target', targetPositions
+    # print 'source', sourcePositions
+    
     # Match vertices in targetPositions to vertices in sourcePositions.
-    # XXX: optimize this
     indexMapping = []
+    unmatchedVertices = 0
     for idx, point in enumerate(targetPositions):
-        closestIndex = findClosestPoint(point)
-#        print 'closest to', idx, 'is', closestIndex
+        closestIndex = _findClosestPoint(sourcePositions, point, tol=tolerance)
+        if closestIndex != -1:
+            # Pull out the original value, which we stored in the tuple above.
+            closestIndex = sourcePositions[closestIndex][3]
+        else:
+            unmatchedVertices += 1
+
         indexMapping.append(closestIndex)
+
+    if unmatchedVertices > 0:
+        OpenMaya.MGlobal.displayWarning('%i of %i vertices couldn\'t be matched' % (unmatchedVertices, len(targetPositions)))
+    else:
+        OpenMaya.MGlobal.displayInfo('All %i vertices were matched' % (len(targetPositions)))
     
     deformerIdx = _getNextAvailableIndex(deformer)
     cmds.connectAttr('%s.worldMesh[0]' % (targetShape), '%s.inputTarget[%i].inputGeomTarget' % (deformer, deformerIdx), f=True)
