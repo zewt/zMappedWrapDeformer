@@ -73,7 +73,11 @@ class zMappedWrapDeformer(OpenMayaMPx.MPxDeformerNode):
         # meshes, even ones that are currently disabled.
         inputsPlug = OpenMaya.MPlug(self.thisMObject(), zMappedWrapDeformer.inputsAttr)
         for inputIdx in xrange(inputsPlug.numElements()):
-            inputPlug = inputsPlug.connectionByPhysicalIndex(inputIdx)
+            try:
+                inputPlug = inputsPlug.connectionByPhysicalIndex(inputIdx)
+            except RuntimeError:
+                # There's nothing connected to this input.
+                continue
 
             # If the envelope for this mesh is very small, skip it without reading the input.
             targetEnvelope = inputPlug.child(self.targetEnvelopeAttr)
