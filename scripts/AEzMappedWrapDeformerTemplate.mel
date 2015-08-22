@@ -4,6 +4,8 @@ global proc AEzMappedWrapDeformerTemplate(string $nodeName)
     editorTemplate -beginScrollLayout;
     editorTemplate -suppress "inputTarget";
     editorTemplate -suppress "vertexIndex";
+    editorTemplate -suppress "vertexIndex";
+    editorTemplate -suppress "weightList";
     AEgeometryFilterCommon $nodeName;
     AEgeometryFilterInclude $nodeName;
     editorTemplate -addExtraControls;
