@@ -69,6 +69,8 @@ class zMappedWrapDeformer(OpenMayaMPx.MPxDeformerNode):
         geomIter.allPositions(points, OpenMaya.MSpace.kObject)
         worldToObjectSpaceMatrix = objectToWorldSpaceMatrix.inverse()
 
+        targetEnvelopes = dataBlock.inputArrayValue(zMappedWrapDeformer.targetEnvelopeAttr)
+
         # Be careful to not call inputArrayValue on inputsAttr.  That'll evaluate all input
         # meshes, even ones that are currently disabled.
         inputsPlug = OpenMaya.MPlug(self.thisMObject(), zMappedWrapDeformer.inputsAttr)
@@ -79,9 +81,15 @@ class zMappedWrapDeformer(OpenMayaMPx.MPxDeformerNode):
                 # There's nothing connected to this input.
                 continue
 
+            # Read this target's envelope.
+            try:
+                targetEnvelopes.jumpToElement(inputPlug.logicalIndex())
+                targetEnvelope = targetEnvelopes.inputValue().asFloat()
+            except RuntimeError:
+                # There's no element at this index, so use the default of 1.
+                targetEnvelope = 1
+
             # If the envelope for this mesh is very small, skip it without reading the input.
-            targetEnvelope = inputPlug.child(self.targetEnvelopeAttr)
-            targetEnvelope = targetEnvelope.asFloat()
             if targetEnvelope < 0.001:
                 continue
             
@@ -162,7 +170,9 @@ def initialize():
     zMappedWrapDeformer.attributeAffects(zMappedWrapDeformer.inputGeomTargetAttr, MPxGeometryFilter_outputGeom)
 
     # A per-target envelope.  This is combined with the deformer's main envelope.
-    zMappedWrapDeformer.targetEnvelopeAttr = nAttr.create('targetEnvelope', 'ten', OpenMaya.MFnNumericData.kFloat, 1)
+    zMappedWrapDeformer.targetEnvelopeAttr = nAttr.create('weight', 'wt', OpenMaya.MFnNumericData.kFloat, 1)
+    nAttr.setChannelBox(True)
+    nAttr.setArray(True)
     nAttr.setSoftMin(0)
     nAttr.setSoftMax(1)
     nAttr.setKeyable(True)
@@ -174,7 +184,6 @@ def initialize():
     cmpAttr.setArray(True)
     cmpAttr.addChild(zMappedWrapDeformer.vertexIndexAttr)
     cmpAttr.addChild(zMappedWrapDeformer.inputGeomTargetAttr)
-    cmpAttr.addChild(zMappedWrapDeformer.targetEnvelopeAttr)
     zMappedWrapDeformer.addAttribute(zMappedWrapDeformer.inputsAttr)
     zMappedWrapDeformer.attributeAffects(zMappedWrapDeformer.inputsAttr, MPxGeometryFilter_outputGeom)
 

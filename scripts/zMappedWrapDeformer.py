@@ -15,6 +15,16 @@ def _getShape(node):
     elif cmds.nodeType(node) in ['mesh', 'nurbsCurve', 'nurbsSurface']:
         return node
 
+def _shortName(s):
+    """
+    Given a path like "|a|b|c", return the last item, "c".
+    """
+    try:
+        idx = s.rindex('|')
+        return s[idx+1:]
+    except ValueError:
+        return s
+
 def _find_visible_shape(transform):
     # If this is already a mesh, just use it.
     if cmds.nodeType(transform) == 'mesh':
@@ -129,7 +139,7 @@ def _findClosestPoint(data, value, tol=0.001):
             nearest_idx = idx
     return nearest_idx
 
-def addTarget(deformer=None, targetShape=None, tolerance=0.001):
+def addTarget(deformer=None, targetShape=None, tolerance=0.01):
     """
     Add a target to a zMappedWrapDeformer.
     """
@@ -192,6 +202,9 @@ def addTarget(deformer=None, targetShape=None, tolerance=0.001):
     
     deformerIdx = _getNextAvailableIndex(deformer)
     cmds.connectAttr('%s.worldMesh[0]' % (targetShape), '%s.inputTarget[%i].inputGeomTarget' % (deformer, deformerIdx), f=True)
+    cmds.setAttr('%s.weight[%i]' % (deformer, deformerIdx), 1)
+    cmds.aliasAttr(_shortName(targetShape), '%s.weight[%i]' % (deformer, deformerIdx))
+    
     for idx, value in enumerate(indexMapping):
         cmds.setAttr('%s.inputTarget[%i].vertexIndex[%i]' % (deformer, deformerIdx, idx), value)
     
